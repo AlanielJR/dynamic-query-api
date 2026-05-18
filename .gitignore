@@ -1,0 +1,38 @@
+# ── Dependencias ─────────────────────────────────────────────
+node_modules/
+package-lock.json
+
+# ── Variables de entorno (NUNCA subir al repo) ────────────────
+.env
+.env.local
+.env.production
+
+# ── Logs ─────────────────────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+
+# ── Sistema operativo ─────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── VS Code ───────────────────────────────────────────────────
+.vscode/settings.json
+.vscode/launch.json
+
+# ── Build / compilados TypeScript ────────────────────────────
+dist/
+build/
+*.js.map
+
+# ── Archivo de contexto interno (no va al repo) ───────────────
+CLAUDE.md
+
+# ── Documentación (no va a producción) ───────────────────────
+# La carpeta Documentacion/ contiene guías, PDFs y colecciones
+# Postman. No se despliega en producción ni se sube al repo.
+Documentacion/
+
+# ── Archivos temporales de Office ─────────────────────────────
+~$*

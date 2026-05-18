@@ -1,0 +1,9 @@
+{
+  "recommendations": [
+    "humao.rest-client",
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+    "rangav.vscode-thunder-client",
+    "mikeburgh.xml-format"
+  ]
+}

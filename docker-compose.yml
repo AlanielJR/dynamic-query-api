@@ -1,0 +1,90 @@
+# =============================================================
+#  Dynamic Query Executor API — Docker Compose v2.0
+#
+#  Uso:
+#    Levantar:   docker-compose up -d
+#    Ver logs:   docker-compose logs -f
+#    Detener:    docker-compose down
+#    Rebuild:    docker-compose up -d --build
+#
+#  Prerrequisito: tener el archivo .env en esta misma carpeta
+#  con todas las variables configuradas (ver .env.example).
+# =============================================================
+
+services:
+
+  # ── Dynamic Query Executor API ──────────────────────────────
+  dynamic-query-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: dynamic-query-api
+    restart: unless-stopped
+
+    ports:
+      - "${PORT:-3000}:3000"
+
+    environment:
+      # ── Servidor ─────────────────────────────────────────
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=3000
+
+      # ── Seguridad ─────────────────────────────────────────
+      - API_KEY=${API_KEY}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - BLOCKED_SQL_COMMANDS=${BLOCKED_SQL_COMMANDS:-DROP,TRUNCATE,ALTER,CREATE,GRANT,REVOKE,DELETE}
+
+      # ── Timeouts (ms) ─────────────────────────────────────
+      - CONNECTION_TIMEOUT=${CONNECTION_TIMEOUT:-10000}
+      - QUERY_TIMEOUT=${QUERY_TIMEOUT:-30000}
+
+      # ── BD de registro (api_connections y api_traces) ─────
+      - REGISTRY_DB_TYPE=${REGISTRY_DB_TYPE:-mssql}
+      - REGISTRY_DB_HOST=${REGISTRY_DB_HOST}
+      - REGISTRY_DB_PORT=${REGISTRY_DB_PORT:-1433}
+      - REGISTRY_DB_NAME=${REGISTRY_DB_NAME}
+      - REGISTRY_DB_USER=${REGISTRY_DB_USER}
+      - REGISTRY_DB_PASSWORD=${REGISTRY_DB_PASSWORD}
+
+    # Carga todas las variables del archivo .env
+    env_file:
+      - .env
+
+    healthcheck:
+      test:
+        - "CMD"
+        - "wget"
+        - "-qO-"
+        - "--header"
+        - "X-Api-Key: ${API_KEY:-test-api-key-123}"
+        - "http://localhost:3000/api/connections"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+    # Límites de recursos del contenedor
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+    networks:
+      - api-network
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+# ── Redes ───────────────────────────────────────────────────────
+networks:
+  api-network:
+    driver: bridge
+    name: dynamic-query-network

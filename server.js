@@ -1,6 +1,6 @@
 'use strict';
 
-require('dotenv').config();
+require('dotenv').config({ override: true });
 
 const express = require('express');
 const dns     = require('dns');
@@ -121,10 +121,23 @@ app.delete('/trace', requireApiKey, async (req, res) => {
  * POST /api/connections
  * Registra o actualiza una conexión. Las credenciales se cifran con AES-256-GCM.
  *
- * Body: { connection_id, label, db_type, host, port, database, username, password }
+ * Body: { connection_id, label, db_type, host, port, username, password, encoded? }
+ *
+ * encoded (opcional, default: false):
+ *   false — host, username y password se reciben en texto plano.
+ *   true  — host, username y password vienen codificados en Base64 (solo transporte).
+ *           El API los decodifica antes de guardar/cifrar con AES-256-GCM.
+ *           Base64 no es cifrado — es solo enmascaramiento del transporte.
  */
 app.post('/api/connections', requireApiKey, async (req, res) => {
   try {
+    const { encoded } = req.body;
+    if (encoded !== undefined && typeof encoded !== 'boolean') {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'INVALID_REQUEST', message: 'El campo "encoded" debe ser true o false.' }
+      });
+    }
     const conn = await connections.upsert(req.body);
     return res.status(201).json({ success: true, connection: conn });
   } catch (err) {

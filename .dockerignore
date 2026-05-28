@@ -1,0 +1,22 @@
+# Dependencias (se instalan dentro del build)
+node_modules/
+
+# Variables de entorno con credenciales reales
+.env
+
+# Logs generados en tiempo de ejecución
+logs/
+*.log
+
+# Control de versiones
+.git/
+.gitignore
+
+# Documentación y archivos de desarrollo
+Documentacion/
+*.md
+
+# Archivos de Docker (no necesarios dentro del contexto de build)
+docker-compose.yml
+docker-compose.*.yml
+.dockerignore

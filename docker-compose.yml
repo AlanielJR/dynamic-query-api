@@ -46,6 +46,7 @@ services:
       - REGISTRY_DB_NAME=${REGISTRY_DB_NAME}
       - REGISTRY_DB_USER=${REGISTRY_DB_USER}
       - REGISTRY_DB_PASSWORD=${REGISTRY_DB_PASSWORD}
+      - TABLE_CONNECTIONS=${TABLE_CONNECTIONS:-api_connections}
 
     # Carga todas las variables del archivo .env
     env_file:
@@ -53,12 +54,8 @@ services:
 
     healthcheck:
       test:
-        - "CMD"
-        - "wget"
-        - "-qO-"
-        - "--header"
-        - "X-Api-Key: ${API_KEY:-test-api-key-123}"
-        - "http://localhost:3000/api/connections"
+        - "CMD-SHELL"
+        - "wget -qO- http://localhost:3000/api/connections --header \"X-Api-Key: $${API_KEY}\" | grep -q success || exit 1"
       interval: 30s
       timeout: 10s
       retries: 3
@@ -74,6 +71,9 @@ services:
           cpus: '0.25'
           memory: 128M
 
+    volumes:
+      - logs-data:/app/logs
+
     networks:
       - api-network
 
@@ -88,3 +88,8 @@ networks:
   api-network:
     driver: bridge
     name: dynamic-query-network
+
+# ── Volúmenes ───────────────────────────────────────────────────
+volumes:
+  logs-data:
+    name: dynamic-query-logs

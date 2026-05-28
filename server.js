@@ -15,10 +15,11 @@ const BLOCKED_COMMANDS = (process.env.BLOCKED_SQL_COMMANDS || 'DROP,TRUNCATE,ALT
   .split(',').map(c => c.trim().toUpperCase());
 
 // ── Módulos internos ─────────────────────────────────────────
-const registryDb       = require('./lib/registry-db');
-const connections      = require('./lib/connections');
-const traces           = require('./lib/traces');
-const { executeQuery } = require('./lib/query-executor');
+const registryDb            = require('./lib/registry-db');
+const connections           = require('./lib/connections');
+const traces                = require('./lib/traces');
+const { executeQuery }      = require('./lib/query-executor');
+const { encrypt }           = require('./lib/crypto');
 
 // ── Middleware global ────────────────────────────────────────
 app.use(express.json({ limit: '1mb' }));
@@ -76,70 +77,51 @@ function requireApiKey(req, res, next) {
 }
 
 // ============================================================
-//  TRAZABILIDAD  —  GET /trace  |  DELETE /trace
-// ============================================================
-
-/**
- * GET /trace
- * Consulta las trazas almacenadas en api_traces.
- * Filtros opcionales (query string): ip, success, queryType, api,
- *   connection_id, from, to, limit (default 100, max 1000).
- */
-app.get('/trace', requireApiKey, async (req, res) => {
-  try {
-    const { ip, success, queryType, api, connection_id, from, to, limit } = req.query;
-    const result = await traces.query({ ip, success, queryType, api, connection_id, from, to, limit });
-    return res.json({
-      total:    result.total,
-      returned: result.traces.length,
-      filters:  { ip, success, queryType, api, connection_id, from, to },
-      traces:   result.traces
-    });
-  } catch (err) {
-    return res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: err.message } });
-  }
-});
-
-/**
- * DELETE /trace
- * Elimina todos los registros de api_traces.
- */
-app.delete('/trace', requireApiKey, async (req, res) => {
-  try {
-    const deleted = await traces.clear();
-    return res.json({ success: true, message: `${deleted} trazas eliminadas.` });
-  } catch (err) {
-    return res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: err.message } });
-  }
-});
-
-// ============================================================
 //  CONEXIONES  —  /api/connections
 // ============================================================
 
 /**
  * POST /api/connections
- * Registra o actualiza una conexión. Las credenciales se cifran con AES-256-GCM.
+ * Endpoint de cifrado — NO escribe en la BD.
  *
- * Body: { connection_id, label, db_type, host, port, username, password, encoded? }
+ * Recibe host y password en Base64 (requeridos) y username en Base64 (opcional).
+ * Los decodifica y los cifra con AES-256-GCM.
+ * Devuelve los valores cifrados para que el caller los almacene manualmente.
  *
- * encoded (opcional, default: false):
- *   false — host, username y password se reciben en texto plano.
- *   true  — host, username y password vienen codificados en Base64 (solo transporte).
- *           El API los decodifica antes de guardar/cifrar con AES-256-GCM.
- *           Base64 no es cifrado — es solo enmascaramiento del transporte.
+ * Body: { host, password, username? }
+ *   host     {string} — IP o hostname en Base64 (requerido)
+ *   password {string} — Contraseña en Base64 (requerido)
+ *   username {string} — Usuario en Base64 (opcional)
+ *
+ * Respuesta:
+ *   { success: true, host_enc, password_enc, username_enc? }
  */
 app.post('/api/connections', requireApiKey, async (req, res) => {
   try {
-    const { encoded } = req.body;
-    if (encoded !== undefined && typeof encoded !== 'boolean') {
-      return res.status(400).json({
-        success: false,
-        error: { code: 'INVALID_REQUEST', message: 'El campo "encoded" debe ser true o false.' }
-      });
+    const { host, password, username } = req.body;
+
+    if (!host || !String(host).trim()) {
+      return res.status(400).json({ success: false, error: { code: 'INVALID_REQUEST', message: 'Campo requerido: host.' } });
     }
-    const conn = await connections.upsert(req.body);
-    return res.status(201).json({ success: true, connection: conn });
+    if (!password || !String(password).trim()) {
+      return res.status(400).json({ success: false, error: { code: 'INVALID_REQUEST', message: 'Campo requerido: password.' } });
+    }
+
+    const rawHost     = connections.decodeBase64(host,     'host');
+    const rawPassword = connections.decodeBase64(password, 'password');
+
+    const response = {
+      success:      true,
+      host_enc:     encrypt(rawHost),
+      password_enc: encrypt(rawPassword),
+    };
+
+    if (username && String(username).trim()) {
+      const rawUsername     = connections.decodeBase64(username, 'username');
+      response.username_enc = encrypt(rawUsername);
+    }
+
+    return res.status(200).json(response);
   } catch (err) {
     return res.status(400).json({ success: false, error: { code: 'INVALID_REQUEST', message: err.message } });
   }
@@ -395,8 +377,6 @@ async function startServer() {
     console.log(`  GET   http://localhost:${PORT}/api/connections`);
     console.log(`  GET   http://localhost:${PORT}/api/connections/:id`);
     console.log(`  DEL   http://localhost:${PORT}/api/connections/:id`);
-    console.log(`  GET   http://localhost:${PORT}/trace`);
-    console.log(`  DEL   http://localhost:${PORT}/trace`);
     console.log('------------------------------------------------');
     console.log(`  API Key      : ${API_KEY}`);
     console.log(`  Bloqueados   : ${BLOCKED_COMMANDS.join(', ')}`);

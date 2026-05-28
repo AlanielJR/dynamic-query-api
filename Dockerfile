@@ -13,7 +13,8 @@ WORKDIR /app
 COPY package*.json ./
 
 # Instalar únicamente dependencias de producción (sin devDependencies)
-RUN npm install --omit=dev
+# npm ci garantiza instalación reproducible basada en package-lock.json
+RUN npm ci --omit=dev
 
 # ── Stage 2: Imagen final ──────────────────────────────────────
 FROM node:20-alpine AS production

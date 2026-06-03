@@ -112,13 +112,13 @@ app.post('/api/connections', requireApiKey, async (req, res) => {
 
     const response = {
       success:      true,
-      host_enc:     encrypt(rawHost),
-      password_enc: encrypt(rawPassword),
+      host_enc:     Buffer.from(encrypt(rawHost)).toString('base64'),
+      password_enc: Buffer.from(encrypt(rawPassword)).toString('base64'),
     };
 
     if (username && String(username).trim()) {
       const rawUsername     = connections.decodeBase64(username, 'username');
-      response.username_enc = encrypt(rawUsername);
+      response.username_enc = Buffer.from(encrypt(rawUsername)).toString('base64');
     }
 
     return res.status(200).json(response);
@@ -127,50 +127,6 @@ app.post('/api/connections', requireApiKey, async (req, res) => {
   }
 });
 
-/**
- * GET /api/connections
- * Lista todas las conexiones registradas (sin credenciales).
- */
-app.get('/api/connections', requireApiKey, async (req, res) => {
-  try {
-    const list = await connections.list();
-    return res.json({ success: true, total: list.length, connections: list });
-  } catch (err) {
-    return res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: err.message } });
-  }
-});
-
-/**
- * GET /api/connections/:id
- * Devuelve el detalle de una conexión por su connection_id (sin credenciales).
- */
-app.get('/api/connections/:id', requireApiKey, async (req, res) => {
-  try {
-    const conn = await connections.getById(req.params.id, false);
-    if (!conn) {
-      return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: `Conexión "${req.params.id}" no encontrada.` } });
-    }
-    return res.json({ success: true, connection: conn });
-  } catch (err) {
-    return res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: err.message } });
-  }
-});
-
-/**
- * DELETE /api/connections/:id
- * Elimina una conexión por su connection_id.
- */
-app.delete('/api/connections/:id', requireApiKey, async (req, res) => {
-  try {
-    const deleted = await connections.remove(req.params.id);
-    if (!deleted) {
-      return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: `Conexión "${req.params.id}" no encontrada.` } });
-    }
-    return res.json({ success: true, message: `Conexión "${req.params.id}" eliminada.` });
-  } catch (err) {
-    return res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: err.message } });
-  }
-});
 
 // ============================================================
 //  EJECUCIÓN DE QUERIES  —  POST /api/query
@@ -374,9 +330,6 @@ async function startServer() {
     console.log('================================================');
     console.log(`  POST  http://localhost:${PORT}/api/query`);
     console.log(`  POST  http://localhost:${PORT}/api/connections`);
-    console.log(`  GET   http://localhost:${PORT}/api/connections`);
-    console.log(`  GET   http://localhost:${PORT}/api/connections/:id`);
-    console.log(`  DEL   http://localhost:${PORT}/api/connections/:id`);
     console.log('------------------------------------------------');
     console.log(`  API Key      : ${API_KEY}`);
     console.log(`  Bloqueados   : ${BLOCKED_COMMANDS.join(', ')}`);
